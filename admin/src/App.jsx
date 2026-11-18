@@ -84,7 +84,6 @@ export default function App() {
     cargarDatos();
   };
 
-  // Función rápida para alternar estado activo/inactivo desde la lista
   const toggleEstadoProducto = async (prod) => {
     const prodActualizado = { ...prod, activo: !prod.activo };
     try {
@@ -215,7 +214,6 @@ export default function App() {
                   </select>
                 </div>
 
-                {/* NUEVO: Checkbox de Disponibilidad */}
                 <div className="flex items-center gap-3 bg-slate-900 p-3 rounded-xl border border-slate-800">
                   <input 
                     type="checkbox" 
@@ -272,7 +270,6 @@ export default function App() {
                         <p className="text-xs text-slate-400 font-semibold">${precioNum.toFixed(2)} {prov && `• ${prov.nombre}`}</p>
                       </div>
                       <div className="flex flex-col gap-1.5">
-                        {/* Botón rápido para activar/desactivar */}
                         <button onClick={() => toggleEstadoProducto(p)} className={`p-2 rounded-xl transition ${p.activo !== false ? 'bg-emerald-950 text-emerald-400 hover:bg-emerald-900' : 'bg-rose-950 text-rose-400 hover:bg-rose-900'}`} title={p.activo !== false ? "Desactivar" : "Activar"}>
                           {p.activo !== false ? <Eye size={14} /> : <EyeOff size={14} />}
                         </button>
@@ -291,7 +288,6 @@ export default function App() {
           </div>
         )}
 
-        {/* RESTO DE TABS (PROVEEDORES Y CONFIG) SE MANTIENEN IGUAL */}
         {tab === 'proveedores' && (
           <div className="bg-slate-950 border border-slate-800 p-8 rounded-3xl shadow-xl max-w-xl space-y-6">
             <div>
@@ -314,21 +310,50 @@ export default function App() {
         )}
 
         {tab === 'config' && (
-          <form onSubmit={guardarConfig} className="bg-slate-950 border border-slate-800 p-8 rounded-3xl shadow-xl max-w-xl space-y-5">
+          <form onSubmit={guardarConfig} className="bg-slate-950 border border-slate-800 p-8 rounded-3xl shadow-xl max-w-xl space-y-6">
             <div>
               <h3 className="font-black text-lg text-white">Ajustes de la Tienda</h3>
+              <p className="text-xs text-slate-400">Personaliza la información general y las imágenes de tu tienda pública.</p>
             </div>
+
             <div className="space-y-4">
               <div>
                 <label className="text-xs font-bold text-slate-400 block mb-1">Nombre de la Tienda</label>
                 <input type="text" value={config.nombreTienda} onChange={e => setConfig({...config, nombreTienda: e.target.value})} className="w-full bg-slate-900 border border-slate-800 px-4 py-3 rounded-2xl text-xs text-white focus:outline-none focus:ring-2 focus:ring-violet-500 font-bold" />
               </div>
+
               <div>
-                <label className="text-xs font-bold text-slate-400 block mb-1">Teléfono de WhatsApp</label>
+                <label className="text-xs font-bold text-slate-400 block mb-1">Subtítulo / Eslogan</label>
+                <input type="text" value={config.subtitulo} onChange={e => setConfig({...config, subtitulo: e.target.value})} className="w-full bg-slate-900 border border-slate-800 px-4 py-3 rounded-2xl text-xs text-white focus:outline-none focus:ring-2 focus:ring-violet-500 font-bold" />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-400 block mb-1">Teléfono de WhatsApp (Ej. 52999...)</label>
                 <input type="text" value={config.whatsappTel} onChange={e => setConfig({...config, whatsappTel: e.target.value})} className="w-full bg-slate-900 border border-slate-800 px-4 py-3 rounded-2xl text-xs text-white focus:outline-none focus:ring-2 focus:ring-violet-500 font-bold" />
               </div>
+
+              {/* Logo independiente */}
+              <div className="space-y-2 pt-2 border-t border-slate-800">
+                <label className="text-xs font-bold text-slate-400 block">Logo de la Tienda</label>
+                <div className="flex items-center gap-4">
+                  <img src={config.logoUrl || FALLBACK_IMG} alt="Logo" className="w-14 h-14 object-cover rounded-2xl border border-slate-800 bg-slate-900" />
+                  <input type="file" accept="image/*" onChange={e => handleImagenLocal(e, (url) => setConfig({...config, logoUrl: url}))} className="w-full text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-violet-600 file:text-white hover:file:bg-violet-500 cursor-pointer" />
+                </div>
+              </div>
+
+              {/* Banner / Portada independiente */}
+              <div className="space-y-2 pt-2 border-t border-slate-800">
+                <label className="text-xs font-bold text-slate-400 block">Imagen de Banner / Portada</label>
+                <div className="flex items-center gap-4">
+                  <img src={config.bannerUrl || FALLBACK_IMG} alt="Banner" className="w-20 h-14 object-cover rounded-2xl border border-slate-800 bg-slate-900" />
+                  <input type="file" accept="image/*" onChange={e => handleImagenLocal(e, (url) => setConfig({...config, bannerUrl: url}))} className="w-full text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-violet-600 file:text-white hover:file:bg-violet-500 cursor-pointer" />
+                </div>
+              </div>
             </div>
-            <button type="submit" className="w-full bg-violet-600 hover:bg-violet-500 text-white py-3.5 rounded-2xl font-black text-xs shadow-lg shadow-violet-600/25 transition">Guardar Cambios</button>
+
+            <button type="submit" className="w-full bg-violet-600 hover:bg-violet-500 text-white py-3.5 rounded-2xl font-black text-xs shadow-lg shadow-violet-600/25 transition">
+              Guardar Cambios de Configuración
+            </button>
           </form>
         )}
       </div>
