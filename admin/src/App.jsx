@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { 
   Shield, Package, Truck, Settings, LogOut, 
-  Plus, Trash2, Edit, Store, Sparkles, Image as ImageIcon, Eye, EyeOff 
+  Trash2, Edit, Eye, EyeOff, Sun, ShoppingBag 
 } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
@@ -18,7 +18,7 @@ export default function App() {
   const [proveedores, setProveedores] = useState([]);
 
   const [nuevoProd, setNuevoProd] = useState({ 
-    id: '', nombre: '', precio: '', categoria: 'Abarrotes', 
+    id: '', nombre: '', precio: '', seccion: 'tienda', categoria: 'Abarrotes', 
     proveedorId: '', imagen: '', descripcion: '', activo: true 
   });
   const [nuevoProvNombre, setNuevoProvNombre] = useState('');
@@ -35,6 +35,7 @@ export default function App() {
       const prodsMapeados = (resProds.data || []).map(p => ({
         ...p,
         id: p.id || p._id,
+        seccion: p.seccion || 'tienda',
         activo: p.activo !== undefined ? p.activo : true
       }));
       setProductos(prodsMapeados);
@@ -80,7 +81,7 @@ export default function App() {
     } else {
       await axios.post(`${API_URL}/admin/productos`, nuevoProd, getHeaders());
     }
-    setNuevoProd({ id: '', nombre: '', precio: '', categoria: 'Abarrotes', proveedorId: '', imagen: '', descripcion: '', activo: true });
+    setNuevoProd({ id: '', nombre: '', precio: '', seccion: 'tienda', categoria: 'Abarrotes', proveedorId: '', imagen: '', descripcion: '', activo: true });
     cargarDatos();
   };
 
@@ -190,9 +191,38 @@ export default function App() {
               <h3 className="font-black text-lg text-white">{nuevoProd.id ? 'Editar Producto' : 'Crear Nuevo Producto'}</h3>
               
               <div className="space-y-3">
+                {/* Selector de Sección: Tienda Normal o Zona de Playa */}
+                <div>
+                  <label className="text-xs font-bold text-slate-400 block mb-1">Apartado de la Tienda</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setNuevoProd({ ...nuevoProd, seccion: 'tienda', categoria: nuevoProd.categoria === 'Calzado' ? 'Abarrotes' : nuevoProd.categoria })}
+                      className={`py-2.5 px-3 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 border transition ${
+                        nuevoProd.seccion === 'tienda'
+                          ? 'bg-violet-600 border-violet-500 text-white shadow-md'
+                          : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      <ShoppingBag size={14} /> Tienda Normal
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setNuevoProd({ ...nuevoProd, seccion: 'playa', categoria: nuevoProd.categoria === 'Abarrotes' ? 'Calzado' : nuevoProd.categoria })}
+                      className={`py-2.5 px-3 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 border transition ${
+                        nuevoProd.seccion === 'playa'
+                          ? 'bg-cyan-600 border-cyan-500 text-white shadow-md'
+                          : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      <Sun size={14} /> Zona de Playa
+                    </button>
+                  </div>
+                </div>
+
                 <div>
                   <label className="text-xs font-bold text-slate-400 block mb-1">Nombre del Producto</label>
-                  <input type="text" placeholder="Ej. Refresco 2L" required value={nuevoProd.nombre} onChange={e => setNuevoProd({...nuevoProd, nombre: e.target.value})} className="w-full bg-slate-900 border border-slate-800 px-3.5 py-2.5 rounded-xl text-xs text-white focus:outline-none focus:ring-2 focus:ring-violet-500 font-bold" />
+                  <input type="text" placeholder={nuevoProd.seccion === 'playa' ? 'Ej. Chanclas de Playa / Traje de Baño' : 'Ej. Refresco 2L'} required value={nuevoProd.nombre} onChange={e => setNuevoProd({...nuevoProd, nombre: e.target.value})} className="w-full bg-slate-900 border border-slate-800 px-3.5 py-2.5 rounded-xl text-xs text-white focus:outline-none focus:ring-2 focus:ring-violet-500 font-bold" />
                 </div>
                 
                 <div className="grid grid-cols-2 gap-2">
@@ -202,7 +232,7 @@ export default function App() {
                   </div>
                   <div>
                     <label className="text-xs font-bold text-slate-400 block mb-1">Categoría</label>
-                    <input type="text" placeholder="Ej. Abarrotes" value={nuevoProd.categoria} onChange={e => setNuevoProd({...nuevoProd, categoria: e.target.value})} className="w-full bg-slate-900 border border-slate-800 px-3.5 py-2.5 rounded-xl text-xs text-white focus:outline-none focus:ring-2 focus:ring-violet-500 font-bold" />
+                    <input type="text" placeholder={nuevoProd.seccion === 'playa' ? 'Ej. Chanclas, Ropa, Lentes' : 'Ej. Abarrotes'} value={nuevoProd.categoria} onChange={e => setNuevoProd({...nuevoProd, categoria: e.target.value})} className="w-full bg-slate-900 border border-slate-800 px-3.5 py-2.5 rounded-xl text-xs text-white focus:outline-none focus:ring-2 focus:ring-violet-500 font-bold" />
                   </div>
                 </div>
 
@@ -233,8 +263,8 @@ export default function App() {
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold text-slate-400 block mb-1">Descripción</label>
-                  <textarea placeholder="Detalles..." value={nuevoProd.descripcion} onChange={e => setNuevoProd({...nuevoProd, descripcion: e.target.value})} className="w-full bg-slate-900 border border-slate-800 px-3.5 py-2.5 rounded-xl text-xs text-white placeholder-slate-500 h-20 focus:outline-none focus:ring-2 focus:ring-violet-500 font-medium" />
+                  <label className="text-xs font-bold text-slate-400 block mb-1">Descripción / Tallas</label>
+                  <textarea placeholder="Detalles, tallas disponibles..." value={nuevoProd.descripcion} onChange={e => setNuevoProd({...nuevoProd, descripcion: e.target.value})} className="w-full bg-slate-900 border border-slate-800 px-3.5 py-2.5 rounded-xl text-xs text-white placeholder-slate-500 h-20 focus:outline-none focus:ring-2 focus:ring-violet-500 font-medium" />
                 </div>
               </div>
 
@@ -243,7 +273,7 @@ export default function App() {
                   {nuevoProd.id ? 'Guardar Cambios' : 'Crear Producto'}
                 </button>
                 {nuevoProd.id && (
-                  <button type="button" onClick={() => setNuevoProd({ id: '', nombre: '', precio: '', categoria: 'Abarrotes', proveedorId: '', imagen: '', descripcion: '', activo: true })} className="bg-slate-800 text-slate-300 px-3 py-3 rounded-xl text-xs font-bold">
+                  <button type="button" onClick={() => setNuevoProd({ id: '', nombre: '', precio: '', seccion: 'tienda', categoria: 'Abarrotes', proveedorId: '', imagen: '', descripcion: '', activo: true })} className="bg-slate-800 text-slate-300 px-3 py-3 rounded-xl text-xs font-bold">
                     Cancelar
                   </button>
                 )}
@@ -256,24 +286,30 @@ export default function App() {
                 {productos.map(p => {
                   const prov = proveedores.find(pr => pr.id === p.proveedorId);
                   const precioNum = typeof p.precio === 'number' ? p.precio : parseFloat(p.precio) || 0;
+                  const esPlaya = p.seccion === 'playa';
                   return (
-                    <div key={p.id} className={`bg-slate-950 border p-4 rounded-2xl shadow-lg flex items-center justify-between gap-3 ${p.activo === false ? 'border-rose-900/50 opacity-60' : 'border-slate-800'}`}>
+                    <div key={p.id} className={`bg-slate-950 border p-4 rounded-2xl shadow-lg flex items-center justify-between gap-3 ${p.activo === false ? 'border-rose-900/50 opacity-60' : esPlaya ? 'border-cyan-900/60' : 'border-slate-800'}`}>
                       <img src={p.imagen || FALLBACK_IMG} alt="" className="w-16 h-16 object-cover rounded-xl border border-slate-800 bg-slate-900" />
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-black uppercase text-violet-400 bg-violet-950/80 px-2 py-0.5 rounded border border-violet-900/50">{p.categoria}</span>
-                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${p.activo !== false ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' : 'bg-rose-950 text-rose-400 border border-rose-800'}`}>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded border ${esPlaya ? 'text-cyan-300 bg-cyan-950/80 border-cyan-800/60' : 'text-violet-400 bg-violet-950/80 border-violet-900/50'}`}>
+                            {esPlaya ? '🏖️ Playa' : '🛒 Tienda'}
+                          </span>
+                          <span className="text-[10px] font-bold uppercase text-slate-300 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">{p.categoria}</span>
+                        </div>
+                        <h4 className="font-bold text-sm text-white truncate mt-1">{p.nombre}</h4>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <p className="text-xs text-slate-400 font-semibold">${precioNum.toFixed(2)} {prov && `• ${prov.nombre}`}</p>
+                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${p.activo !== false ? 'bg-emerald-950 text-emerald-400' : 'bg-rose-950 text-rose-400'}`}>
                             {p.activo !== false ? 'Disponible' : 'Agotado'}
                           </span>
                         </div>
-                        <h4 className="font-bold text-sm text-white truncate mt-1">{p.nombre}</h4>
-                        <p className="text-xs text-slate-400 font-semibold">${precioNum.toFixed(2)} {prov && `• ${prov.nombre}`}</p>
                       </div>
                       <div className="flex flex-col gap-1.5">
                         <button onClick={() => toggleEstadoProducto(p)} className={`p-2 rounded-xl transition ${p.activo !== false ? 'bg-emerald-950 text-emerald-400 hover:bg-emerald-900' : 'bg-rose-950 text-rose-400 hover:bg-rose-900'}`} title={p.activo !== false ? "Desactivar" : "Activar"}>
                           {p.activo !== false ? <Eye size={14} /> : <EyeOff size={14} />}
                         </button>
-                        <button onClick={() => setNuevoProd(p)} className="p-2 bg-slate-900 hover:bg-violet-600 hover:text-white rounded-xl text-slate-300 transition" title="Editar">
+                        <button onClick={() => setNuevoProd({ ...p, seccion: p.seccion || 'tienda' })} className="p-2 bg-slate-900 hover:bg-violet-600 hover:text-white rounded-xl text-slate-300 transition" title="Editar">
                           <Edit size={14} />
                         </button>
                         <button onClick={() => eliminarProducto(p.id)} className="p-2 bg-slate-900 hover:bg-rose-600 hover:text-white rounded-xl text-rose-400 transition" title="Eliminar">
@@ -332,7 +368,6 @@ export default function App() {
                 <input type="text" value={config.whatsappTel} onChange={e => setConfig({...config, whatsappTel: e.target.value})} className="w-full bg-slate-900 border border-slate-800 px-4 py-3 rounded-2xl text-xs text-white focus:outline-none focus:ring-2 focus:ring-violet-500 font-bold" />
               </div>
 
-              {/* Logo independiente */}
               <div className="space-y-2 pt-2 border-t border-slate-800">
                 <label className="text-xs font-bold text-slate-400 block">Logo de la Tienda</label>
                 <div className="flex items-center gap-4">
@@ -341,7 +376,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Banner / Portada independiente */}
               <div className="space-y-2 pt-2 border-t border-slate-800">
                 <label className="text-xs font-bold text-slate-400 block">Imagen de Banner / Portada</label>
                 <div className="flex items-center gap-4">

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { 
   Plus, Search, X, MapPin, Phone, User, 
-  Check, Store, Sparkles, Tag, ShoppingBag, Flame, Navigation 
+  Check, Sparkles, Tag, ShoppingBag, Flame, Navigation, Sun, Store 
 } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
@@ -20,6 +20,8 @@ export default function App() {
   const [proveedores, setProveedores] = useState([]);
   const [carrito, setCarrito] = useState(() => JSON.parse(localStorage.getItem('store_cart')) || []);
 
+  // Pestaña activa: 'tienda' (Tienda General) o 'playa' (Artículos de Playa)
+  const [seccionActiva, setSeccionActiva] = useState('tienda');
   const [busqueda, setBusqueda] = useState('');
   const [categoriaSel, setCategoriaSel] = useState('Todas');
   const [proveedorSel, setProveedorSel] = useState('Todos');
@@ -34,7 +36,6 @@ export default function App() {
   const [ubicacionGpsUrl, setUbicacionGpsUrl] = useState('');
   const [obteniendoGps, setObteniendoGps] = useState(false);
 
-  // Función para cargar los datos desde la API
   const cargarDatos = async () => {
     try {
       const [resConfig, resProds, resProvs] = await Promise.all([
@@ -43,14 +44,22 @@ export default function App() {
         axios.get(`${API_URL}/proveedores`)
       ]);
       if (resConfig.data?.nombreTienda) setConfig(resConfig.data);
-      if (resProds.data) setProductos(resProds.data);
-      if (resProvs.data) setProveedores(resProvs.data);
+      if (resProds.data) {
+        const mapeados = resProds.data.map(p => ({
+          ...p,
+          id: p.id || p._id,
+          seccion: p.seccion || 'tienda'
+        }));
+        setProductos(mapeados);
+      }
+      if (resProvs.data) {
+        setProveedores(resProvs.data.map(pr => ({ ...pr, id: pr.id || pr._id })));
+      }
     } catch (err) {
       console.error('Error al conectar con la API:', err);
     }
   };
 
-  // Carga inicial y actualización automática cada 4 segundos (Auto-sync)
   useEffect(() => {
     cargarDatos();
     const intervalo = setInterval(cargarDatos, 4000);
@@ -60,6 +69,12 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('store_cart', JSON.stringify(carrito));
   }, [carrito]);
+
+  const cambiarSeccion = (nuevaSeccion) => {
+    setSeccionActiva(nuevaSeccion);
+    setCategoriaSel('Todas');
+    setBusqueda('');
+  };
 
   const agregarAlCarrito = (prod) => {
     setCarrito(prev => {
@@ -79,7 +94,6 @@ export default function App() {
     return acc + (precio * p.cantidad);
   }, 0);
 
-  // Función para obtener ubicación actual por GPS
   const obtenerUbicacionActual = () => {
     if (!navigator.geolocation) {
       return alert('Tu navegador o dispositivo no soporta geolocalización.');
@@ -124,7 +138,8 @@ export default function App() {
     
     carrito.forEach(i => {
       const precioUnit = typeof i.precio === 'number' ? i.precio : parseFloat(i.precio) || 0;
-      msj += `• ${i.nombre} x${i.cantidad} - $${(precioUnit * i.cantidad).toFixed(2)}\n`;
+      const etiqueta = i.seccion === 'playa' ? ' [Playa]' : '';
+      msj += `• ${i.nombre}${etiqueta} x${i.cantidad} - $${(precioUnit * i.cantidad).toFixed(2)}\n`;
     });
     msj += `\n*TOTAL A PAGAR: $${totalCarrito.toFixed(2)}*`;
 
@@ -136,15 +151,17 @@ export default function App() {
     setCarritoAbierto(false);
   };
 
-  const productosFiltrados = productos.filter(p => {
-    const estaActivo = p.activo !== false;
+  // Filtrar primero por sección activa ('tienda' o 'playa')
+  const productosPorSeccion = productos.filter(p => (p.seccion || 'tienda') === seccionActiva && p.activo !== false);
+
+  const productosFiltrados = productosPorSeccion.filter(p => {
     const matchBusqueda = p.nombre.toLowerCase().includes(busqueda.toLowerCase()) || (p.descripcion && p.descripcion.toLowerCase().includes(busqueda.toLowerCase()));
     const matchCat = categoriaSel === 'Todas' || p.categoria === categoriaSel;
     const matchProv = proveedorSel === 'Todos' || p.proveedorId === proveedorSel;
-    return estaActivo && matchBusqueda && matchCat && matchProv;
+    return matchBusqueda && matchCat && matchProv;
   });
 
-  const categorias = ['Todas', ...new Set(productos.map(p => p.categoria))];
+  const categorias = ['Todas', ...new Set(productosPorSeccion.map(p => p.categoria))];
 
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col font-sans">
@@ -191,23 +208,56 @@ export default function App() {
       )}
 
       {/* HERO SECTION */}
-      <section className="bg-gradient-to-r from-violet-950 via-indigo-950 to-purple-950 py-14 px-4 text-center text-white shadow-inner border-b border-purple-800/40 relative overflow-hidden">
+      <section className={`py-12 px-4 text-center text-white shadow-inner border-b transition-colors duration-500 relative overflow-hidden ${
+        seccionActiva === 'playa' 
+          ? 'bg-gradient-to-r from-cyan-950 via-teal-950 to-sky-950 border-cyan-800/40' 
+          : 'bg-gradient-to-r from-violet-950 via-indigo-950 to-purple-950 border-purple-800/40'
+      }`}>
         <div className="max-w-3xl mx-auto space-y-3 relative z-10">
           <span className="bg-white/10 backdrop-blur-md border border-white/20 text-pink-300 text-xs font-black px-4 py-1.5 rounded-full inline-flex items-center gap-1.5 shadow-sm uppercase tracking-wider">
             <Flame size={14} className="text-amber-400" /> Pedidos directos y atención rápida
           </span>
           <h2 className="text-4xl sm:text-6xl font-black tracking-tight leading-tight text-white drop-shadow">
-            {config.nombreTienda}
+            {seccionActiva === 'playa' ? 'Zona de Playa' : config.nombreTienda}
           </h2>
           <p className="text-slate-300 text-sm sm:text-base max-w-xl mx-auto font-medium">
-            {config.subtitulo}
+            {seccionActiva === 'playa' 
+              ? 'Chanclas, ropa de playa, lentes y todo lo que necesitas para disfrutar el sol y el mar.' 
+              : config.subtitulo}
           </p>
         </div>
       </section>
 
       {/* CONTENIDO PRINCIPAL */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-10 flex-grow w-full space-y-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 flex-grow w-full space-y-8">
         
+        {/* SELECTOR DE APARTADO PRINCIPAL (OPCIÓN A) */}
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 max-w-2xl mx-auto">
+          <button
+            onClick={() => cambiarSeccion('tienda')}
+            className={`py-4 px-4 sm:px-6 rounded-3xl font-black text-sm sm:text-base flex items-center justify-center gap-2.5 border-2 transition-all duration-300 ${
+              seccionActiva === 'tienda'
+                ? 'bg-gradient-to-r from-violet-600 to-indigo-600 border-violet-400 text-white shadow-xl shadow-violet-600/30 scale-[1.02]'
+                : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white hover:border-slate-700'
+            }`}
+          >
+            <Store size={20} />
+            <span>Tienda / Abarrotes</span>
+          </button>
+
+          <button
+            onClick={() => cambiarSeccion('playa')}
+            className={`py-4 px-4 sm:px-6 rounded-3xl font-black text-sm sm:text-base flex items-center justify-center gap-2.5 border-2 transition-all duration-300 ${
+              seccionActiva === 'playa'
+                ? 'bg-gradient-to-r from-cyan-500 to-teal-500 border-cyan-300 text-slate-950 shadow-xl shadow-cyan-500/30 scale-[1.02]'
+                : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white hover:border-slate-700'
+            }`}
+          >
+            <Sun size={20} />
+            <span>Artículos de Playa</span>
+          </button>
+        </div>
+
         {/* BUSCADOR Y FILTROS */}
         <div className="bg-slate-950 border border-slate-800 p-5 rounded-3xl shadow-xl space-y-4">
           <div className="flex flex-col md:flex-row gap-3">
@@ -215,7 +265,7 @@ export default function App() {
               <Search size={19} className="absolute left-4 top-3.5 text-slate-400" />
               <input 
                 type="text" 
-                placeholder="Busca productos, categorías..." 
+                placeholder={seccionActiva === 'playa' ? 'Busca chanclas, ropa de playa, lentes...' : 'Busca productos, categorías...'} 
                 value={busqueda} 
                 onChange={e => setBusqueda(e.target.value)}
                 className="w-full pl-12 pr-4 py-3 bg-slate-900 border border-slate-700 text-white rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-fuchsia-500 font-semibold placeholder-slate-400"
@@ -239,7 +289,7 @@ export default function App() {
           {/* CATEGORÍAS */}
           <div className="flex items-center gap-2 overflow-x-auto pb-1">
             <span className="text-xs font-black text-slate-400 uppercase tracking-wider flex items-center gap-1 mr-1">
-              <Tag size={13} className="text-fuchsia-400" /> Categorías:
+              <Tag size={13} className={seccionActiva === 'playa' ? 'text-cyan-400' : 'text-fuchsia-400'} /> Categorías:
             </span>
             {categorias.map(cat => (
               <button 
@@ -247,7 +297,9 @@ export default function App() {
                 onClick={() => setCategoriaSel(cat)} 
                 className={`px-4 py-2 rounded-xl text-xs font-extrabold whitespace-nowrap transition-all duration-200 ${
                   categoriaSel === cat 
-                    ? 'bg-gradient-to-r from-fuchsia-600 to-pink-600 text-white shadow-lg shadow-fuchsia-600/30' 
+                    ? seccionActiva === 'playa'
+                      ? 'bg-gradient-to-r from-cyan-500 to-teal-500 text-slate-950 shadow-lg shadow-cyan-500/30'
+                      : 'bg-gradient-to-r from-fuchsia-600 to-pink-600 text-white shadow-lg shadow-fuchsia-600/30' 
                     : 'bg-slate-900 text-slate-200 border border-slate-700 hover:bg-slate-800'
                 }`}
               >
@@ -261,7 +313,9 @@ export default function App() {
         {productosFiltrados.length === 0 ? (
           <div className="text-center py-20 bg-slate-950 rounded-3xl border border-slate-800 shadow-sm">
             <Search size={48} className="mx-auto text-slate-600 mb-3" />
-            <h3 className="text-lg font-bold text-slate-300">No hay productos disponibles</h3>
+            <h3 className="text-lg font-bold text-slate-300">
+              {seccionActiva === 'playa' ? 'Aún no hay artículos de playa disponibles' : 'No hay productos disponibles'}
+            </h3>
             <p className="text-xs text-slate-500 mt-1">Intenta con otro término de búsqueda o categoría.</p>
           </div>
         ) : (
@@ -273,7 +327,9 @@ export default function App() {
               return (
                 <div 
                   key={prod.id} 
-                  className="group bg-slate-950 border border-slate-800 rounded-3xl overflow-hidden flex flex-col justify-between shadow-xl hover:shadow-2xl hover:border-fuchsia-500/50 transition-all duration-300 hover:-translate-y-1.5"
+                  className={`group bg-slate-950 border border-slate-800 rounded-3xl overflow-hidden flex flex-col justify-between shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1.5 ${
+                    seccionActiva === 'playa' ? 'hover:border-cyan-500/50' : 'hover:border-fuchsia-500/50'
+                  }`}
                 >
                   <div className="relative h-52 bg-slate-900 overflow-hidden">
                     <img 
@@ -291,7 +347,11 @@ export default function App() {
                   
                   <div className="p-5 flex-grow flex flex-col justify-between space-y-4">
                     <div>
-                      <span className="text-[10px] font-black uppercase tracking-wider text-pink-400 bg-pink-950/80 px-2.5 py-1 rounded-md border border-pink-800/60">
+                      <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-md border ${
+                        seccionActiva === 'playa'
+                          ? 'text-cyan-300 bg-cyan-950/80 border-cyan-800/60'
+                          : 'text-pink-400 bg-pink-950/80 border-pink-800/60'
+                      }`}>
                         {prod.categoria}
                       </span>
                       <h3 className="font-bold text-base text-white mt-2.5 leading-snug line-clamp-2">{prod.nombre}</h3>
@@ -307,7 +367,11 @@ export default function App() {
                       </div>
                       <button 
                         onClick={() => agregarAlCarrito(prod)} 
-                        className="bg-gradient-to-r from-fuchsia-600 to-pink-600 hover:from-fuchsia-500 hover:to-pink-500 text-white px-4 py-2.5 rounded-2xl text-xs font-black flex items-center gap-1.5 shadow-lg shadow-fuchsia-600/25 active:scale-95 transition"
+                        className={`px-4 py-2.5 rounded-2xl text-xs font-black flex items-center gap-1.5 shadow-lg active:scale-95 transition ${
+                          seccionActiva === 'playa'
+                            ? 'bg-gradient-to-r from-cyan-500 to-teal-500 hover:from-cyan-400 hover:to-teal-400 text-slate-950 shadow-cyan-500/25'
+                            : 'bg-gradient-to-r from-fuchsia-600 to-pink-600 hover:from-fuchsia-500 hover:to-pink-500 text-white shadow-fuchsia-600/25'
+                        }`}
                       >
                         <Plus size={16} /> Agregar
                       </button>
@@ -324,7 +388,6 @@ export default function App() {
       {carritoAbierto && (
         <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex justify-end">
           <div className="bg-slate-950 text-white w-full max-w-md h-full flex flex-col shadow-2xl border-l border-slate-800">
-            {/* Header Carrito */}
             <div className="p-5 border-b border-slate-800 flex items-center justify-between bg-slate-900">
               <h3 className="font-black text-lg text-white flex items-center gap-2">
                 <ShoppingBag className="text-pink-400" size={22} /> Tu Carrito de Compras
@@ -337,7 +400,6 @@ export default function App() {
               </button>
             </div>
 
-            {/* Ítems del Carrito */}
             <div className="flex-1 overflow-y-auto p-5 space-y-3.5">
               {carrito.length === 0 ? (
                 <div className="text-center py-20 text-slate-500">
@@ -357,7 +419,14 @@ export default function App() {
                         className="w-14 h-14 object-cover rounded-xl border border-slate-700 bg-slate-950" 
                       />
                       <div className="flex-1 min-w-0">
-                        <h4 className="font-bold text-sm text-white truncate">{item.nombre}</h4>
+                        <div className="flex items-center gap-1.5">
+                          <h4 className="font-bold text-sm text-white truncate">{item.nombre}</h4>
+                          {item.seccion === 'playa' && (
+                            <span className="text-[9px] font-black uppercase bg-cyan-950 text-cyan-300 px-1.5 py-0.5 rounded border border-cyan-800/60 shrink-0">
+                              🏖️ Playa
+                            </span>
+                          )}
+                        </div>
                         <p className="text-xs text-pink-400 font-bold mt-0.5">${precioItem.toFixed(2)} c/u</p>
                         
                         <div className="flex items-center gap-2.5 mt-2">
@@ -380,7 +449,6 @@ export default function App() {
               )}
             </div>
 
-            {/* Formulario de Checkout */}
             {carrito.length > 0 && (
               <form onSubmit={enviarPedidoWhatsApp} className="p-5 border-t border-slate-800 bg-slate-900 space-y-4">
                 <div className="flex justify-between items-center text-lg font-black text-white border-b border-slate-800 pb-3">

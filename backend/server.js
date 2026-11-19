@@ -36,6 +36,7 @@ const Proveedor = mongoose.model('Proveedor', proveedorSchema);
 const productoSchema = new mongoose.Schema({
   nombre: String,
   precio: Number,
+  seccion: { type: String, default: 'tienda' },
   categoria: String,
   proveedorId: String,
   imagen: String,
