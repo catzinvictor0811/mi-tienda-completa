@@ -8,20 +8,37 @@ import {
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 const FALLBACK_IMG = 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=600&q=80';
 
+const prodInicial = {
+  id: '',
+  nombre: '',
+  precio: '',
+  seccion: 'tienda',
+  categoria: 'Abarrotes',
+  proveedorId: '',
+  imagen: '',
+  descripcion: '',
+  activo: true
+};
+
 export default function App() {
   const [token, setToken] = useState(() => localStorage.getItem('admin_token') || '');
   const [password, setPassword] = useState('');
   const [tab, setTab] = useState('productos');
 
-  const [config, setConfig] = useState({ nombreTienda: '', subtitulo: '', logoUrl: '', bannerUrl: '', whatsappTel: '' });
+  const [config, setConfig] = useState({
+    nombreTienda: '',
+    subtitulo: '',
+    logoUrl: '',
+    bannerUrl: '',
+    whatsappTel: ''
+  });
   const [productos, setProductos] = useState([]);
   const [proveedores, setProveedores] = useState([]);
 
-  const [nuevoProd, setNuevoProd] = useState({ 
-    id: '', nombre: '', precio: '', seccion: 'tienda', categoria: 'Abarrotes', 
-    proveedorId: '', imagen: '', descripcion: '', activo: true 
-  });
+  const [nuevoProd, setNuevoProd] = useState(prodInicial);
   const [nuevoProvNombre, setNuevoProvNombre] = useState('');
+  const [guardandoProd, setGuardandoProd] = useState(false);
+  const [guardandoConfig, setGuardandoConfig] = useState(false);
 
   const cargarDatos = async () => {
     try {
@@ -30,8 +47,17 @@ export default function App() {
         axios.get(`${API_URL}/productos`),
         axios.get(`${API_URL}/proveedores`)
       ]);
-      setConfig(resConfig.data);
-      
+
+      if (resConfig.data) {
+        setConfig({
+          nombreTienda: resConfig.data.nombreTienda || '',
+          subtitulo: resConfig.data.subtitulo || '',
+          logoUrl: resConfig.data.logoUrl || '',
+          bannerUrl: resConfig.data.bannerUrl || '',
+          whatsappTel: resConfig.data.whatsappTel || ''
+        });
+      }
+
       const prodsMapeados = (resProds.data || []).map(p => ({
         ...p,
         id: p.id || p._id,
@@ -45,9 +71,8 @@ export default function App() {
         id: pr.id || pr._id
       }));
       setProveedores(provsMapeados);
-
     } catch (err) {
-      console.error(err);
+      console.error('Error al cargar datos:', err);
     }
   };
 
@@ -76,60 +101,127 @@ export default function App() {
 
   const guardarProducto = async (e) => {
     e.preventDefault();
-    if (nuevoProd.id) {
-      await axios.put(`${API_URL}/admin/productos/${nuevoProd.id}`, nuevoProd, getHeaders());
-    } else {
-      await axios.post(`${API_URL}/admin/productos`, nuevoProd, getHeaders());
+    if (guardandoProd) return;
+
+    if (!nuevoProd.nombre.trim() || nuevoProd.precio === '') {
+      return alert('Por favor completa el nombre y el precio del producto.');
     }
-    setNuevoProd({ id: '', nombre: '', precio: '', seccion: 'tienda', categoria: 'Abarrotes', proveedorId: '', imagen: '', descripcion: '', activo: true });
-    cargarDatos();
+
+    setGuardandoProd(true);
+    try {
+      const payload = {
+        nombre: nuevoProd.nombre.trim(),
+        precio: parseFloat(nuevoProd.precio) || 0,
+        seccion: nuevoProd.seccion || 'tienda',
+        categoria: (nuevoProd.categoria || '').trim() || 'General',
+        proveedorId: nuevoProd.proveedorId || '',
+        imagen: nuevoProd.imagen || '',
+        descripcion: nuevoProd.descripcion || '',
+        activo: nuevoProd.activo !== false
+      };
+
+      if (nuevoProd.id) {
+        await axios.put(`${API_URL}/admin/productos/${nuevoProd.id}`, payload, getHeaders());
+      } else {
+        await axios.post(`${API_URL}/admin/productos`, payload, getHeaders());
+      }
+
+      setNuevoProd(prodInicial);
+      await cargarDatos();
+      alert('Producto guardado con éxito.');
+    } catch (err) {
+      console.error('Error al guardar producto:', err);
+      alert('No se pudo guardar el producto. Verifica tu conexión o vuelve a iniciar sesión.');
+    } finally {
+      setGuardandoProd(false);
+    }
   };
 
   const toggleEstadoProducto = async (prod) => {
     const prodActualizado = { ...prod, activo: !prod.activo };
     try {
       await axios.put(`${API_URL}/admin/productos/${prod.id}`, prodActualizado, getHeaders());
-      cargarDatos();
+      await cargarDatos();
     } catch (err) {
-      console.error('Error al cambiar estado', err);
+      console.error('Error al cambiar estado:', err);
+      alert('No se pudo cambiar el estado del producto.');
     }
   };
 
   const eliminarProducto = async (id) => {
     if (confirm('¿Eliminar este producto?')) {
-      await axios.delete(`${API_URL}/admin/productos/${id}`, getHeaders());
-      cargarDatos();
+      try {
+        await axios.delete(`${API_URL}/admin/productos/${id}`, getHeaders());
+        await cargarDatos();
+      } catch (err) {
+        console.error('Error al eliminar producto:', err);
+        alert('No se pudo eliminar el producto.');
+      }
     }
   };
 
   const agregarProveedor = async (e) => {
     e.preventDefault();
     if (!nuevoProvNombre.trim()) return;
-    await axios.post(`${API_URL}/admin/proveedores`, { nombre: nuevoProvNombre }, getHeaders());
-    setNuevoProvNombre('');
-    cargarDatos();
+    try {
+      await axios.post(`${API_URL}/admin/proveedores`, { nombre: nuevoProvNombre.trim() }, getHeaders());
+      setNuevoProvNombre('');
+      await cargarDatos();
+    } catch (err) {
+      console.error('Error al agregar proveedor:', err);
+      alert('No se pudo agregar el proveedor.');
+    }
   };
 
   const eliminarProveedor = async (id) => {
     if (confirm('¿Eliminar proveedor?')) {
-      await axios.delete(`${API_URL}/admin/proveedores/${id}`, getHeaders());
-      cargarDatos();
+      try {
+        await axios.delete(`${API_URL}/admin/proveedores/${id}`, getHeaders());
+        await cargarDatos();
+      } catch (err) {
+        console.error('Error al eliminar proveedor:', err);
+        alert('No se pudo eliminar el proveedor.');
+      }
     }
   };
 
   const guardarConfig = async (e) => {
     e.preventDefault();
-    await axios.put(`${API_URL}/admin/config`, config, getHeaders());
-    alert('Configuración guardada con éxito');
+    if (guardandoConfig) return;
+
+    setGuardandoConfig(true);
+    try {
+      await axios.put(`${API_URL}/admin/config`, config, getHeaders());
+      await cargarDatos();
+      alert('Configuración guardada con éxito');
+    } catch (err) {
+      console.error('Error al guardar configuración:', err);
+      alert('No se pudo guardar la configuración. Revisa tu conexión.');
+    } finally {
+      setGuardandoConfig(false);
+    }
   };
 
-  const handleImagenLocal = (e, callback) => {
-    const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => callback(reader.result);
-      reader.readAsDataURL(file);
-    }
+  // Comprime/redimensiona imágenes locales para evitar payloads pesados
+  const handleImagenLocal = (e, callback, maxAncho = 900) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const escala = img.width > maxAncho ? maxAncho / img.width : 1;
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(img.width * escala);
+        canvas.height = Math.round(img.height * escala);
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        callback(canvas.toDataURL('image/jpeg', 0.8));
+      };
+      img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
   };
 
   if (!token) {
@@ -150,7 +242,7 @@ export default function App() {
             value={password} onChange={e => setPassword(e.target.value)}
             className="w-full bg-slate-950 border border-slate-800 px-4 py-3 rounded-2xl text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 font-bold"
           />
-          <button type="submit" className="w-full bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-black py-3.5 rounded-2xl text-sm shadow-lg shadow-indigo-600/20 transition active:scale-95">
+          <button type="submit" className="w-full bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-black py-3.5 rounded-2xl text-sm shadow-lg shadow-indigo-600/20 transition active:scale-95 cursor-pointer">
             Iniciar Sesión
           </button>
         </form>
@@ -167,20 +259,20 @@ export default function App() {
           </div>
           <h1 className="font-black text-lg text-white">Panel de Control - Tienda</h1>
         </div>
-        <button onClick={logout} className="bg-rose-600/20 border border-rose-500/30 hover:bg-rose-600 text-rose-300 hover:text-white text-xs px-4 py-2.5 rounded-xl flex items-center gap-2 font-bold transition">
+        <button onClick={logout} className="bg-rose-600/20 border border-rose-500/30 hover:bg-rose-600 text-rose-300 hover:text-white text-xs px-4 py-2.5 rounded-xl flex items-center gap-2 font-bold transition cursor-pointer">
           <LogOut size={16} /> Cerrar Sesión
         </button>
       </header>
 
       <div className="max-w-7xl mx-auto w-full p-6 flex-grow space-y-6">
-        <div className="flex gap-3 border-b border-slate-800 pb-4">
-          <button onClick={() => setTab('productos')} className={`px-5 py-2.5 rounded-2xl text-sm font-black flex items-center gap-2 transition ${tab === 'productos' ? 'bg-violet-600 text-white shadow-lg shadow-violet-600/30' : 'bg-slate-950 text-slate-400 border border-slate-800 hover:text-white'}`}>
+        <div className="flex gap-3 border-b border-slate-800 pb-4 flex-wrap">
+          <button type="button" onClick={() => setTab('productos')} className={`px-5 py-2.5 rounded-2xl text-sm font-black flex items-center gap-2 transition cursor-pointer ${tab === 'productos' ? 'bg-violet-600 text-white shadow-lg shadow-violet-600/30' : 'bg-slate-950 text-slate-400 border border-slate-800 hover:text-white'}`}>
             <Package size={17} /> Productos ({productos.length})
           </button>
-          <button onClick={() => setTab('proveedores')} className={`px-5 py-2.5 rounded-2xl text-sm font-black flex items-center gap-2 transition ${tab === 'proveedores' ? 'bg-violet-600 text-white shadow-lg shadow-violet-600/30' : 'bg-slate-950 text-slate-400 border border-slate-800 hover:text-white'}`}>
+          <button type="button" onClick={() => setTab('proveedores')} className={`px-5 py-2.5 rounded-2xl text-sm font-black flex items-center gap-2 transition cursor-pointer ${tab === 'proveedores' ? 'bg-violet-600 text-white shadow-lg shadow-violet-600/30' : 'bg-slate-950 text-slate-400 border border-slate-800 hover:text-white'}`}>
             <Truck size={17} /> Proveedores ({proveedores.length})
           </button>
-          <button onClick={() => setTab('config')} className={`px-5 py-2.5 rounded-2xl text-sm font-black flex items-center gap-2 transition ${tab === 'config' ? 'bg-violet-600 text-white shadow-lg shadow-violet-600/30' : 'bg-slate-950 text-slate-400 border border-slate-800 hover:text-white'}`}>
+          <button type="button" onClick={() => setTab('config')} className={`px-5 py-2.5 rounded-2xl text-sm font-black flex items-center gap-2 transition cursor-pointer ${tab === 'config' ? 'bg-violet-600 text-white shadow-lg shadow-violet-600/30' : 'bg-slate-950 text-slate-400 border border-slate-800 hover:text-white'}`}>
             <Settings size={17} /> Ajustes General
           </button>
         </div>
@@ -191,14 +283,13 @@ export default function App() {
               <h3 className="font-black text-lg text-white">{nuevoProd.id ? 'Editar Producto' : 'Crear Nuevo Producto'}</h3>
               
               <div className="space-y-3">
-                {/* Selector de Sección: Tienda Normal o Zona de Playa */}
                 <div>
                   <label className="text-xs font-bold text-slate-400 block mb-1">Apartado de la Tienda</label>
                   <div className="grid grid-cols-2 gap-2">
                     <button
                       type="button"
                       onClick={() => setNuevoProd({ ...nuevoProd, seccion: 'tienda', categoria: nuevoProd.categoria === 'Calzado' ? 'Abarrotes' : nuevoProd.categoria })}
-                      className={`py-2.5 px-3 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 border transition ${
+                      className={`py-2.5 px-3 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 border transition cursor-pointer ${
                         nuevoProd.seccion === 'tienda'
                           ? 'bg-violet-600 border-violet-500 text-white shadow-md'
                           : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
@@ -209,7 +300,7 @@ export default function App() {
                     <button
                       type="button"
                       onClick={() => setNuevoProd({ ...nuevoProd, seccion: 'playa', categoria: nuevoProd.categoria === 'Abarrotes' ? 'Calzado' : nuevoProd.categoria })}
-                      className={`py-2.5 px-3 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 border transition ${
+                      className={`py-2.5 px-3 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 border transition cursor-pointer ${
                         nuevoProd.seccion === 'playa'
                           ? 'bg-cyan-600 border-cyan-500 text-white shadow-md'
                           : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
@@ -259,7 +350,7 @@ export default function App() {
 
                 <div>
                   <label className="text-xs font-bold text-slate-400 block mb-1">Imagen del Producto</label>
-                  <input type="file" accept="image/*" onChange={e => handleImagenLocal(e, (url) => setNuevoProd({...nuevoProd, imagen: url}))} className="w-full text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-violet-600 file:text-white hover:file:bg-violet-500 cursor-pointer" />
+                  <input type="file" accept="image/*" onChange={e => handleImagenLocal(e, (url) => setNuevoProd({...nuevoProd, imagen: url}), 700)} className="w-full text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-violet-600 file:text-white hover:file:bg-violet-500 cursor-pointer" />
                 </div>
 
                 <div>
@@ -269,11 +360,19 @@ export default function App() {
               </div>
 
               <div className="flex gap-2 pt-2">
-                <button type="submit" className="flex-1 bg-violet-600 hover:bg-violet-500 text-white py-3 rounded-xl font-black text-xs shadow-lg shadow-violet-600/25 transition">
-                  {nuevoProd.id ? 'Guardar Cambios' : 'Crear Producto'}
+                <button
+                  type="submit"
+                  disabled={guardandoProd}
+                  className="flex-1 bg-violet-600 hover:bg-violet-500 disabled:bg-slate-700 text-white py-3 rounded-xl font-black text-xs shadow-lg shadow-violet-600/25 transition cursor-pointer"
+                >
+                  {guardandoProd ? 'Guardando...' : nuevoProd.id ? 'Guardar Cambios' : 'Crear Producto'}
                 </button>
                 {nuevoProd.id && (
-                  <button type="button" onClick={() => setNuevoProd({ id: '', nombre: '', precio: '', seccion: 'tienda', categoria: 'Abarrotes', proveedorId: '', imagen: '', descripcion: '', activo: true })} className="bg-slate-800 text-slate-300 px-3 py-3 rounded-xl text-xs font-bold">
+                  <button
+                    type="button"
+                    onClick={() => setNuevoProd(prodInicial)}
+                    className="bg-slate-800 text-slate-300 px-3 py-3 rounded-xl text-xs font-bold cursor-pointer"
+                  >
                     Cancelar
                   </button>
                 )}
@@ -306,13 +405,13 @@ export default function App() {
                         </div>
                       </div>
                       <div className="flex flex-col gap-1.5">
-                        <button onClick={() => toggleEstadoProducto(p)} className={`p-2 rounded-xl transition ${p.activo !== false ? 'bg-emerald-950 text-emerald-400 hover:bg-emerald-900' : 'bg-rose-950 text-rose-400 hover:bg-rose-900'}`} title={p.activo !== false ? "Desactivar" : "Activar"}>
+                        <button type="button" onClick={() => toggleEstadoProducto(p)} className={`p-2 rounded-xl transition cursor-pointer ${p.activo !== false ? 'bg-emerald-950 text-emerald-400 hover:bg-emerald-900' : 'bg-rose-950 text-rose-400 hover:bg-rose-900'}`} title={p.activo !== false ? "Desactivar" : "Activar"}>
                           {p.activo !== false ? <Eye size={14} /> : <EyeOff size={14} />}
                         </button>
-                        <button onClick={() => setNuevoProd({ ...p, seccion: p.seccion || 'tienda' })} className="p-2 bg-slate-900 hover:bg-violet-600 hover:text-white rounded-xl text-slate-300 transition" title="Editar">
+                        <button type="button" onClick={() => setNuevoProd({ ...p, seccion: p.seccion || 'tienda' })} className="p-2 bg-slate-900 hover:bg-violet-600 hover:text-white rounded-xl text-slate-300 transition cursor-pointer" title="Editar">
                           <Edit size={14} />
                         </button>
-                        <button onClick={() => eliminarProducto(p.id)} className="p-2 bg-slate-900 hover:bg-rose-600 hover:text-white rounded-xl text-rose-400 transition" title="Eliminar">
+                        <button type="button" onClick={() => eliminarProducto(p.id)} className="p-2 bg-slate-900 hover:bg-rose-600 hover:text-white rounded-xl text-rose-400 transition cursor-pointer" title="Eliminar">
                           <Trash2 size={14} />
                         </button>
                       </div>
@@ -332,13 +431,13 @@ export default function App() {
             </div>
             <form onSubmit={agregarProveedor} className="flex gap-2">
               <input type="text" placeholder="Nombre del proveedor..." required value={nuevoProvNombre} onChange={e => setNuevoProvNombre(e.target.value)} className="flex-1 bg-slate-900 border border-slate-800 px-4 py-3 rounded-2xl text-xs text-white focus:outline-none focus:ring-2 focus:ring-violet-500 font-bold" />
-              <button type="submit" className="bg-violet-600 hover:bg-violet-500 text-white px-5 rounded-2xl text-xs font-black shadow-lg shadow-violet-600/25 transition">Agregar</button>
+              <button type="submit" className="bg-violet-600 hover:bg-violet-500 text-white px-5 rounded-2xl text-xs font-black shadow-lg shadow-violet-600/25 transition cursor-pointer">Agregar</button>
             </form>
             <div className="space-y-3">
               {proveedores.map(pr => (
                 <div key={pr.id} className="flex items-center justify-between p-4 border border-slate-800 rounded-2xl bg-slate-900 shadow-inner">
                   <h4 className="font-bold text-sm text-white">{pr.nombre}</h4>
-                  <button onClick={() => eliminarProveedor(pr.id)} className="text-rose-400 hover:text-rose-300 text-xs font-bold bg-rose-950/50 border border-rose-900/50 px-3 py-1.5 rounded-xl transition">Eliminar</button>
+                  <button type="button" onClick={() => eliminarProveedor(pr.id)} className="text-rose-400 hover:text-rose-300 text-xs font-bold bg-rose-950/50 border border-rose-900/50 px-3 py-1.5 rounded-xl transition cursor-pointer">Eliminar</button>
                 </div>
               ))}
             </div>
@@ -372,7 +471,7 @@ export default function App() {
                 <label className="text-xs font-bold text-slate-400 block">Logo de la Tienda</label>
                 <div className="flex items-center gap-4">
                   <img src={config.logoUrl || FALLBACK_IMG} alt="Logo" className="w-14 h-14 object-cover rounded-2xl border border-slate-800 bg-slate-900" />
-                  <input type="file" accept="image/*" onChange={e => handleImagenLocal(e, (url) => setConfig({...config, logoUrl: url}))} className="w-full text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-violet-600 file:text-white hover:file:bg-violet-500 cursor-pointer" />
+                  <input type="file" accept="image/*" onChange={e => handleImagenLocal(e, (url) => setConfig({...config, logoUrl: url}), 400)} className="w-full text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-violet-600 file:text-white hover:file:bg-violet-500 cursor-pointer" />
                 </div>
               </div>
 
@@ -380,13 +479,17 @@ export default function App() {
                 <label className="text-xs font-bold text-slate-400 block">Imagen de Banner / Portada</label>
                 <div className="flex items-center gap-4">
                   <img src={config.bannerUrl || FALLBACK_IMG} alt="Banner" className="w-20 h-14 object-cover rounded-2xl border border-slate-800 bg-slate-900" />
-                  <input type="file" accept="image/*" onChange={e => handleImagenLocal(e, (url) => setConfig({...config, bannerUrl: url}))} className="w-full text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-violet-600 file:text-white hover:file:bg-violet-500 cursor-pointer" />
+                  <input type="file" accept="image/*" onChange={e => handleImagenLocal(e, (url) => setConfig({...config, bannerUrl: url}), 1100)} className="w-full text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-violet-600 file:text-white hover:file:bg-violet-500 cursor-pointer" />
                 </div>
               </div>
             </div>
 
-            <button type="submit" className="w-full bg-violet-600 hover:bg-violet-500 text-white py-3.5 rounded-2xl font-black text-xs shadow-lg shadow-violet-600/25 transition">
-              Guardar Cambios de Configuración
+            <button
+              type="submit"
+              disabled={guardandoConfig}
+              className="w-full bg-violet-600 hover:bg-violet-500 disabled:bg-slate-700 text-white py-3.5 rounded-2xl font-black text-xs shadow-lg shadow-violet-600/25 transition cursor-pointer"
+            >
+              {guardandoConfig ? 'Guardando...' : 'Guardar Cambios de Configuración'}
             </button>
           </form>
         )}
