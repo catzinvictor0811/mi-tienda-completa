@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { 
   Plus, Search, X, MapPin, Phone, User, 
-  Check, Store, Sparkles, Tag, ShoppingBag, Flame 
+  Check, Store, Sparkles, Tag, ShoppingBag, Flame, Navigation 
 } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
@@ -31,6 +31,8 @@ export default function App() {
   const [tipoUbicacion, setTipoUbicacion] = useState('direccion');
   const [clienteDireccion, setClienteDireccion] = useState('');
   const [clienteUrlMaps, setClienteUrlMaps] = useState('');
+  const [ubicacionGpsUrl, setUbicacionGpsUrl] = useState('');
+  const [obteniendoGps, setObteniendoGps] = useState(false);
 
   // Función para cargar los datos desde la API
   const cargarDatos = async () => {
@@ -77,13 +79,47 @@ export default function App() {
     return acc + (precio * p.cantidad);
   }, 0);
 
+  // Función para obtener ubicación actual por GPS
+  const obtenerUbicacionActual = () => {
+    if (!navigator.geolocation) {
+      return alert('Tu navegador o dispositivo no soporta geolocalización.');
+    }
+
+    setObteniendoGps(true);
+    navigator.geolocation.getCurrentPosition(
+      (posicion) => {
+        const { latitude, longitude } = posicion.coords;
+        const linkMaps = `https://www.google.com/maps?q=${latitude},${longitude}`;
+        setUbicacionGpsUrl(linkMaps);
+        setObteniendoGps(false);
+      },
+      (error) => {
+        setObteniendoGps(false);
+        alert('No se pudo obtener tu ubicación. Asegúrate de activar el GPS y dar permisos al navegador.');
+        console.error(error);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
   const enviarPedidoWhatsApp = (e) => {
     e.preventDefault();
     if (!clienteNombre || !clienteTelefono) return alert('Por favor llena tus datos de contacto.');
+    if (tipoUbicacion === 'gps' && !ubicacionGpsUrl) {
+      return alert('Por favor presiona el botón para obtener tu ubicación GPS actual.');
+    }
     
     let msj = `*NUEVO PEDIDO - ${config.nombreTienda.toUpperCase()}*\n\n`;
     msj += `*Cliente:* ${clienteNombre}\n*Teléfono:* ${clienteTelefono}\n`;
-    msj += tipoUbicacion === 'direccion' ? `*Dirección:* ${clienteDireccion}\n\n` : `*Ubicación Maps:* ${clienteUrlMaps}\n\n`;
+    
+    if (tipoUbicacion === 'direccion') {
+      msj += `*Dirección:* ${clienteDireccion}\n\n`;
+    } else if (tipoUbicacion === 'maps') {
+      msj += `*Ubicación Maps:* ${clienteUrlMaps}\n\n`;
+    } else if (tipoUbicacion === 'gps') {
+      msj += `*Ubicación GPS Actual:* ${ubicacionGpsUrl}\n\n`;
+    }
+
     msj += `*DETALLE DEL PEDIDO:*\n`;
     
     carrito.forEach(i => {
@@ -100,7 +136,6 @@ export default function App() {
     setCarritoAbierto(false);
   };
 
-  // CORREGIDO: Se incluye "estaActivo" en el filtro para que se oculten los desactivados
   const productosFiltrados = productos.filter(p => {
     const estaActivo = p.activo !== false;
     const matchBusqueda = p.nombre.toLowerCase().includes(busqueda.toLowerCase()) || (p.descripcion && p.descripcion.toLowerCase().includes(busqueda.toLowerCase()));
@@ -380,22 +415,49 @@ export default function App() {
                   >
                     <option value="direccion">📍 Escribir Dirección Normal</option>
                     <option value="maps">🗺️ Pegar URL de Google Maps</option>
+                    <option value="gps">📡 Usar mi ubicación actual (GPS)</option>
                   </select>
 
-                  {tipoUbicacion === 'direccion' ? (
+                  {tipoUbicacion === 'direccion' && (
                     <textarea 
+                      required
                       placeholder="Calle, número, colonia, referencias..." 
                       value={clienteDireccion} onChange={e => setClienteDireccion(e.target.value)} 
                       className="w-full bg-slate-950 border border-slate-700 rounded-2xl p-3 text-xs text-white placeholder-slate-400 h-16 focus:outline-none focus:ring-2 focus:ring-fuchsia-500 font-bold" 
                     />
-                  ) : (
+                  )}
+
+                  {tipoUbicacion === 'maps' && (
                     <div className="relative">
                       <MapPin size={16} className="absolute left-3.5 top-3.5 text-slate-400" />
                       <input 
-                        type="url" placeholder="https://maps.google.com/..." 
+                        type="url" required placeholder="https://maps.google.com/..." 
                         value={clienteUrlMaps} onChange={e => setClienteUrlMaps(e.target.value)} 
                         className="w-full pl-10 pr-3.5 py-3 bg-slate-950 border border-slate-700 rounded-2xl text-xs text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-fuchsia-500 font-bold" 
                       />
+                    </div>
+                  )}
+
+                  {tipoUbicacion === 'gps' && (
+                    <div className="space-y-2">
+                      <button
+                        type="button"
+                        onClick={obtenerUbicacionActual}
+                        disabled={obteniendoGps}
+                        className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 text-white font-bold py-3 px-4 rounded-2xl text-xs flex items-center justify-center gap-2 transition shadow-md"
+                      >
+                        <Navigation size={15} className={obteniendoGps ? 'animate-spin' : ''} />
+                        {obteniendoGps ? 'Detectando ubicación GPS...' : ubicacionGpsUrl ? '🔄 Actualizar mi ubicación actual' : '📍 Obtener mi ubicación actual'}
+                      </button>
+                      
+                      {ubicacionGpsUrl && (
+                        <div className="bg-emerald-950/60 border border-emerald-700/60 rounded-xl p-2.5 text-[11px] text-emerald-300 flex items-center justify-between gap-2">
+                          <span className="truncate font-semibold">✅ Ubicación lista para enviar</span>
+                          <a href={ubicacionGpsUrl} target="_blank" rel="noreferrer" className="underline font-black text-emerald-200 shrink-0">
+                            Ver mapa
+                          </a>
+                        </div>
+                      )}
                     </div>
                   )}
 
